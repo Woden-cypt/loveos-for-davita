@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>loveOS — for Davita</title>
+<meta name="description" content="A little interactive terminal built by hand, for Davita.">
+<meta property="og:title" content="loveOS — for Davita">
+<meta property="og:description" content="A little interactive terminal built by hand, for Davita.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://woden-cypt.github.io/loveos-for-davita/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F0FA;
+    --shell:#FFFFFF;
+    --ink:#3A2350;
+    --dim:#9385A8;
+    --pink:#E0568C;
+    --lilac:#B08BD6;
+    --mint:#3FA98D;
+    --edge:#E7DCF0;
+    --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(820px 500px at 15% -12%, rgba(224,86,140,.10), transparent 60%),
+      radial-gradient(700px 460px at 92% 108%, rgba(176,139,214,.16), transparent 60%),
+      var(--paper);
+    font-family:var(--mono);
+    color:var(--ink);
+    min-height:100vh;
+    min-height:100dvh;
+    -webkit-font-smoothing:antialiased;
+    -webkit-text-size-adjust:100%;
+  }
+  .page{
+    max-width:720px;margin:0 auto;
+    padding:40px 16px 64px;
+    padding:
+      max(40px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(64px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+  }
+
+  /* ---- window chrome ---- */
+  .win{
+    background:var(--shell);
+    border:1px solid var(--edge);
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 34px 60px -34px rgba(58,35,80,.35);
+  }
+  .bar{
+    display:flex;align-items:center;gap:8px;
+    padding:12px 14px;border-bottom:1px solid var(--edge);
+    background:linear-gradient(180deg,#FFFFFF,#FBF7FE);
+  }
+  .dot{width:11px;height:11px;border-radius:50%}
+  .d1{background:#F2A0BC}.d2{background:#E9CE8E}.d3{background:#9BD4C0}
+  .bar .title{
+    flex:1;text-align:center;font-size:11.5px;color:var(--dim);
+    letter-spacing:.04em;margin-right:33px;
+  }
+
+  /* ---- terminal body ---- */
+  .screen{
+    padding:20px 18px 8px;
+    font-size:14px;line-height:1.75;
+    min-height:340px;
+    max-height:60vh;
+    max-height:60dvh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .screen .cmd{color:var(--ink);font-weight:700}
+  .screen .cmd .ps{color:var(--pink);font-weight:700}
+  .screen .ok{color:var(--mint)}
+  .screen .dim{color:var(--dim)}
+  .screen .hl{color:var(--pink)}
+  .screen .file{color:var(--lilac)}
+  .screen .big{
+    color:var(--ink);font-size:15px;
+  }
+  .line{margin:0}
+  .gap{height:12px}
+
+  .prompt{display:flex;align-items:center;gap:8px;padding:4px 18px 20px}
+  .prompt .ps{color:var(--pink);font-weight:700;font-size:14px}
+  .prompt input{
+    flex:1;border:0;background:transparent;outline:none;
+    font-family:var(--mono);font-size:14px;color:var(--ink);padding:2px 0;
+  }
+  .prompt input::placeholder{color:#C6B9D6}
+  .caret{
+    width:8px;height:17px;background:var(--pink);
+    animation:blink 1.05s steps(1) infinite;flex:0 0 auto;
+  }
+  @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+
+  /* ---- suggestion chips ---- */
+  .chips{
+    display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;
+  }
+  .chips .lab{
+    width:100%;font-size:11px;color:var(--dim);
+    letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px;
+  }
+  .chip{
+    font-family:var(--mono);font-size:12.5px;
+    background:var(--shell);border:1px solid var(--edge);
+    color:var(--ink);border-radius:999px;padding:8px 14px;cursor:pointer;
+    transition:border-color .15s ease,transform .15s ease,color .15s ease;
+    touch-action:manipulation;
+  }
+  .chip:hover{border-color:var(--pink);color:var(--pink);transform:translateY(-1px)}
+  .chip:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .chip[disabled]{opacity:.4;cursor:default;transform:none}
+
+  /* ---- no-JavaScript fallback for the iPhone Files preview ---- */
+  .static-command{display:inline-block}
+  .static-command[open]{width:100%}
+  .static-command summary{
+    list-style:none;
+    width:max-content;
+    max-width:100%;
+  }
+  .static-command summary::-webkit-details-marker{display:none}
+  .static-output{
+    width:100%;margin-top:8px;padding:14px;
+    background:var(--shell);border:1px solid var(--edge);
+    border-radius:12px;font-size:12.5px;line-height:1.7;
+    white-space:pre-wrap;overflow-wrap:anywhere;
+  }
+  .static-output .hl{color:var(--pink)}
+  .static-output .dim{color:var(--dim)}
+  .static-output .ok{color:var(--mint)}
+  .static-output .file{color:var(--lilac)}
+
+  footer{margin-top:30px;font-size:11px;color:var(--dim);letter-spacing:.1em;text-align:center}
+
+  @media (max-width:520px){
+    .page{
+      padding:26px 12px 48px;
+      padding:
+        max(26px, env(safe-area-inset-top))
+        max(12px, env(safe-area-inset-right))
+        max(48px, env(safe-area-inset-bottom))
+        max(12px, env(safe-area-inset-left));
+    }
+    .screen{
+      font-size:13px;padding:16px 14px 6px;
+      min-height:240px;
+      min-height:clamp(240px, 42dvh, 300px);
+      max-height:56dvh;
+    }
+    .prompt{padding:4px 14px 16px}
+    /* iOS Safari zooms the page when a focused input is smaller than 16px. */
+    .prompt input{font-size:16px;min-width:0}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms!important;transition-duration:.01ms!important}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="win">
+    <div class="bar">
+      <span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span>
+      <span class="title" id="window-title">davita@loveOS — bash</span>
+    </div>
+    <div class="screen" id="screen" aria-live="polite">
+      <div id="static-boot">
+        <p class="line dim">loveOS 2.6.1 (paris build)</p>
+        <p class="line dim">mounting /feelings .............. ok</p>
+        <p class="line dim">checking heart .................. ok (elevated)</p>
+        <p class="line hl">warning: no known exit condition</p>
+        <p class="line">&nbsp;</p>
+        <p class="line">tap a command below to begin.</p>
+      </div>
+    </div>
+    <form class="prompt" id="form" autocomplete="off">
+      <span class="ps">&gt;</span>
+      <input id="input" placeholder="type a command, or tap one below" aria-label="command input" disabled>
+      <span class="caret" id="caret"></span>
+    </form>
+  </div>
+
+  <div class="chips" id="chips">
+    <span class="lab">tap to run</span>
+    <details class="static-command">
+      <summary class="chip">help</summary>
+      <div class="static-output"><span class="dim">available commands</span>
+
+whoami · ls reasons/ · cat reasons/laugh
+ping davita · top · git log · install happiness
+sudo stop · <span class="hl">open letter.txt</span></div>
+    </details>
+    <details class="static-command">
+      <summary class="chip">whoami</summary>
+      <div class="static-output"><span class="hl">davita</span>
+role: favourite person
+status: permanent, non-revocable
+<span class="dim">last login: this morning, in my head</span></div>
+    </details>
+    <details class="static-command">
+      <summary class="chip">ls reasons/</summary>
+      <div class="static-output file">your-laugh.txt          the-way-you-argue.md
+how-you-text-me.log     3am-conversations.wav
+your-terrible-puns.sh   when-you-concentrate.png
+
+<span class="dim">847 more files not shown</span></div>
+    </details>
+    <details class="static-command">
+      <summary class="chip">ping davita</summary>
+      <div class="static-output"><span class="dim">PING davita (127.0.0.1)</span>
+reply: time=12ms
+reply: time=4ms
+reply: time=0ms
+
+<span class="ok">0% packet loss. you're always right here.</span></div>
+    </details>
+    <details class="static-command">
+      <summary class="chip">top</summary>
+      <div class="static-output"><span class="dim">PID   %CPU   PROCESS</span>
+001   98.7   thinking-about-you
+002   71.2   rereading-your-messages
+003   12.1   actual-work
+004   00.3   sleep
+
+<span class="dim">system running hot. no action required.</span></div>
+    </details>
+    <details class="static-command">
+      <summary class="chip">git log</summary>
+      <div class="static-output">commit a1f2c9   met you
+<span class="dim">    everything since is a merge conflict worth having</span>
+
+commit 7bd903   first trip together
+<span class="dim">    zero bugs reported</span>
+
+commit c3e015   the hard month
+<span class="dim">    we shipped it anyway</span>
+
+<span class="hl">commit ff41ae   today</span>
+<span class="dim">    still building</span></div>
+    </details>
+    <details class="static-command">
+      <summary class="chip">install happiness</summary>
+      <div class="static-output"><span class="dim">resolving dependencies...</span>
+<span class="hl">[████████████████████] 100%</span>
+
+<span class="ok">happiness is already installed.</span>
+source: you</div>
+    </details>
+    <details class="static-command">
+      <summary class="chip">sudo stop</summary>
+      <div class="static-output"><span class="hl">Permission denied.</span>
+<span class="dim">this incident has been reported. to me. by me.</span></div>
+    </details>
+    <details class="static-command">
+      <summary class="chip">open letter.txt</summary>
+      <div class="static-output">hey you.
+
+i built a whole fake computer because i couldn't
+think of a normal way to say it, which is probably
+the most honest thing about me.
+
+thank you for putting up with the late nights, the
+half-finished sentences, and the man who explains
+things nobody asked about.
+
+you make every ordinary day worth logging.
+
+<span class="hl">— tosanut</span></div>
+    </details>
+  </div>
+
+  <footer id="site-footer">made by hand · paris</footer>
+</div>
+
+<script>
+/* =====================================================================
+   EDIT ME.  Everything she reads lives in this one object.
+   Each command maps to an array of output lines.
+   Line format:  ["text", "style"]   styles: dim, hl, ok, file, big
+   ===================================================================== */
+
+const NAME = "davita";
+
+const DEFAULT_SITE_CONFIG = {
+  windowTitle: "davita@loveOS — bash",
+  footer: "made by hand · paris",
+  letter: `hey you.
+
+i built a whole fake computer because i couldn't
+think of a normal way to say it, which is probably
+the most honest thing about me.
+
+thank you for putting up with the late nights, the
+half-finished sentences, and the man who explains
+things nobody asked about.
+
+you make every ordinary day worth logging.`,
+  signature: "— tosanut",
+  colors: {
+    paper: "#F6F0FA",
+    shell: "#FFFFFF",
+    ink: "#3A2350",
+    dim: "#9385A8",
+    accent: "#E0568C",
+    secondary: "#B08BD6",
+    success: "#3FA98D",
+    edge: "#E7DCF0"
+  }
+};
+
+const COMMANDS = {
+
+  "help": [
+    ["available commands", "dim"],
+    ["", ""],
+    ["  whoami            who you are, officially", ""],
+    ["  ls reasons/       list the reasons", ""],
+    ["  cat reasons/laugh open one of them", ""],
+    ["  ping davita       check the connection", ""],
+    ["  top               what this machine is busy with", ""],
+    ["  git log           our commit history", ""],
+    ["  install happiness (already handled)", ""],
+    ["  sudo stop         don't", ""],
+    ["  open letter.txt   the actual message", "hl"]
+  ],
+
+  "whoami": [
+    ["davita", "hl"],
+    ["role: favourite person", ""],
+    ["status: permanent, non-revocable", ""],
+    ["last login: this morning, in my head", "dim"]
+  ],
+
+  "ls reasons/": [
+    ["your-laugh.txt          the-way-you-argue.md", "file"],
+    ["how-you-text-me.log     3am-conversations.wav", "file"],
+    ["your-terrible-puns.sh   when-you-concentrate.png", "file"],
+    ["", ""],
+    ["847 more files not shown", "dim"]
+  ],
+
+  "cat reasons/laugh": [
+    ["it is the loudest thing in any room", "big"],
+    ["and i have never once wanted it quieter.", "big"]
+  ],
+
+  "ping davita": [
+    ["PING davita (127.0.0.1)", "dim"],
+    ["reply: time=12ms", ""],
+    ["reply: time=4ms", ""],
+    ["reply: time=0ms", ""],
+    ["", ""],
+    ["0% packet loss. you're always right here.", "ok"]
+  ],
+
+  "top": [
+    ["PID   %CPU   PROCESS", "dim"],
+    ["001   98.7   thinking-about-you", ""],
+    ["002   71.2   rereading-your-messages", ""],
+    ["003   12.1   actual-work", ""],
+    ["004   00.3   sleep", ""],
+    ["", ""],
+    ["system running hot. no action required.", "dim"]
+  ],
+
+  /* ---- swap these four for real moments. this is the good part. ---- */
+  "git log": [
+    ["commit a1f2c9   met you", ""],
+    ["    everything since is a merge conflict worth having", "dim"],
+    ["", ""],
+    ["commit 7bd903   first trip together", ""],
+    ["    zero bugs reported", "dim"],
+    ["", ""],
+    ["commit c3e015   the hard month", ""],
+    ["    we shipped it anyway", "dim"],
+    ["", ""],
+    ["commit ff41ae   today", "hl"],
+    ["    still building", "dim"]
+  ],
+
+  "install happiness": [
+    ["resolving dependencies...", "dim"],
+    ["[████████████████████] 100%", "hl"],
+    ["", ""],
+    ["happiness is already installed.", "ok"],
+    ["source: you", ""]
+  ],
+
+  "sudo stop": [
+    ["Permission denied.", "hl"],
+    ["this incident has been reported. to me. by me.", "dim"]
+  ],
+
+  /* ---- write your own here. this is the one that matters. ---- */
+  "open letter.txt": [
+    ["hey you.", "big"],
+    ["", ""],
+    ["i built a whole fake computer because i couldn't", "big"],
+    ["think of a normal way to say it, which is probably", "big"],
+    ["the most honest thing about me.", "big"],
+    ["", ""],
+    ["thank you for putting up with the late nights, the", "big"],
+    ["half-finished sentences, and the man who explains", "big"],
+    ["things nobody asked about.", "big"],
+    ["", ""],
+    ["you make every ordinary day worth logging.", "big"],
+    ["", ""],
+    ["— tosanut", "hl"]
+  ]
+};
+
+/* aliases so near-misses still work */
+const ALIASES = {
+  "ls":"ls reasons/", "ls reasons":"ls reasons/",
+  "cat reasons/your-laugh.txt":"cat reasons/laugh", "cat":"cat reasons/laugh",
+  "ping":"ping davita", "sudo":"sudo stop",
+  "sudo stop loving you":"sudo stop", "sudo stop-loving-you":"sudo stop",
+  "install":"install happiness", "git":"git log",
+  "letter":"open letter.txt", "open":"open letter.txt", "cat letter.txt":"open letter.txt",
+  "?":"help", "h":"help"
+};
+
+const CHIPS = ["help","whoami","ls reasons/","ping davita","top","git log","install happiness","sudo stop","open letter.txt"];
+
+const BOOT = [
+  ["loveOS 2.6.1 (paris build)", "dim"],
+  ["mounting /feelings .............. ok", "dim"],
+  ["checking heart .................. ok (elevated)", "dim"],
+  ["warning: no known exit condition", "hl"],
+  ["", ""],
+  ["type help to begin.", ""]
+];
+
+function applySiteConfig(value){
+  const config = value && typeof value === "object" ? value : DEFAULT_SITE_CONFIG;
+  const colors = config.colors || DEFAULT_SITE_CONFIG.colors;
+  const root = document.documentElement;
+  const colorMap = {
+    paper:"--paper", shell:"--shell", ink:"--ink", dim:"--dim",
+    accent:"--pink", secondary:"--lilac", success:"--mint", edge:"--edge"
+  };
+
+  Object.entries(colorMap).forEach(([key, variable]) => {
+    if (typeof colors[key] === "string") root.style.setProperty(variable, colors[key]);
+  });
+
+  document.getElementById("window-title").textContent =
+    config.windowTitle || DEFAULT_SITE_CONFIG.windowTitle;
+  document.getElementById("site-footer").textContent =
+    config.footer || DEFAULT_SITE_CONFIG.footer;
+
+  const letter = typeof config.letter === "string"
+    ? config.letter
+    : DEFAULT_SITE_CONFIG.letter;
+  const signature = typeof config.signature === "string"
+    ? config.signature
+    : DEFAULT_SITE_CONFIG.signature;
+
+  COMMANDS["open letter.txt"] = [
+    ...letter.split(/\r?\n/).map(line => [line, "big"]),
+    ["", ""],
+    [signature, "hl"]
+  ];
+}
+
+async function loadRemoteConfig(){
+  /* GitHub Pages is static, so configuration lives in this file. */
+  applySiteConfig(DEFAULT_SITE_CONFIG);
+}
+
+/* ===================== engine ===================== */
+
+const screen = document.getElementById('screen');
+const input  = document.getElementById('input');
+const form   = document.getElementById('form');
+const chipbox= document.getElementById('chips');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep  = ms => new Promise(r => setTimeout(r, ms));
+let busy = false;
+
+/* JavaScript is disabled in iPhone Files preview. When it is available,
+   replace the built-in fallback with the fully interactive terminal. */
+document.getElementById('static-boot')?.remove();
+chipbox.querySelectorAll('.static-command').forEach(el => el.remove());
+input.disabled = false;
+
+function put(text, cls){
+  const p = document.createElement('p');
+  p.className = 'line' + (cls ? ' ' + cls : '');
+  p.textContent = text === '' ? '\u00A0' : text;
+  screen.appendChild(p);
+  screen.scrollTop = screen.scrollHeight;
+  return p;
+}
+
+function putCmd(text){
+  const p = document.createElement('p');
+  p.className = 'line cmd';
+  const ps = document.createElement('span');
+  ps.className = 'ps';
+  ps.textContent = '> ';
+  const body = document.createElement('span');
+  p.append(ps, body);
+  screen.appendChild(p);
+  return body;
+}
+
+async function typeCmd(text){
+  const target = putCmd();
+  if (reduce){ target.textContent = text; screen.scrollTop = screen.scrollHeight; return; }
+  for (const ch of text){
+    target.textContent += ch;
+    screen.scrollTop = screen.scrollHeight;
+    await sleep(26);
+  }
+}
+
+async function printLines(lines){
+  for (const [text, cls] of lines){
+    put(text, cls);
+    await sleep(reduce ? 0 : 95);
+  }
+}
+
+function gap(){ const d = document.createElement('div'); d.className='gap'; screen.appendChild(d); }
+
+function resolve(raw){
+  const key = raw.trim().toLowerCase().replace(/\s+/g,' ');
+  if (COMMANDS[key]) return COMMANDS[key];
+  if (ALIASES[key] && COMMANDS[ALIASES[key]]) return COMMANDS[ALIASES[key]];
+  return null;
+}
+
+async function execute(raw, refocusInput = false){
+  if (busy || !raw.trim()) return;
+  busy = true;
+  setChips(false);
+  await typeCmd(raw.trim());
+  await sleep(reduce ? 0 : 180);
+  const out = resolve(raw);
+  if (out) await printLines(out);
+  else {
+    await printLines([
+      ["command not found: " + raw.trim(), "hl"],
+      ["try help. or just say it out loud, i'll hear it.", "dim"]
+    ]);
+  }
+  gap();
+  screen.scrollTop = screen.scrollHeight;
+  busy = false;
+  setChips(true);
+  /* Keep chip taps from opening the iPhone keyboard. */
+  if (refocusInput) input.focus({preventScroll:true});
+}
+
+function setChips(on){
+  chipbox.querySelectorAll('.chip').forEach(c => c.disabled = !on);
+}
+
+CHIPS.forEach(c => {
+  const b = document.createElement('button');
+  b.className = 'chip';
+  b.type = 'button';
+  b.textContent = c;
+  b.addEventListener('click', () => execute(c, false));
+  chipbox.appendChild(b);
+});
+
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const v = input.value;
+  input.value = '';
+  execute(v, true);
+});
+
+(async function boot(){
+  await loadRemoteConfig();
+  busy = true; setChips(false);
+  await printLines(BOOT);
+  gap();
+  busy = false; setChips(true);
+})();
+</script>
+</body>
+</html>
